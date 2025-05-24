@@ -61,8 +61,8 @@ Action Required: Manual analysis of technical metrics
 ### **1. Environment Setup**
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd arizegui
+git clone https://github.com/PSkinnerTech/ai-cost-intelligence.git
+cd ai-cost-intelligence
 
 # Copy environment template
 cp env.template .env
