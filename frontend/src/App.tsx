@@ -7,6 +7,11 @@ import ABTestComparison from './components/Testing/ABTestComparison';
 import MonacoTest from './components/Debug/MonacoTest';
 import CostAnalyticsChart from './components/Dashboard/CostAnalyticsChart';
 import CostDashboard from './components/Dashboard/CostDashboard';
+import { SignedIn as ClerkSignedIn, SignedOut as ClerkSignedOut, RedirectToSignIn } from "@clerk/clerk-react";
+
+// Type assertion for React 19 compatibility
+const SignedIn = ClerkSignedIn as React.FC<{ children: React.ReactNode }>;
+const SignedOut = ClerkSignedOut as React.FC<{ children: React.ReactNode }>;
 
 function App() {
   const [currentView, setCurrentView] = useState<'editor' | 'comparison' | 'dashboard' | 'debug' | 'analytics'>('dashboard');
@@ -128,15 +133,22 @@ function App() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100">
-      <Header />
-      <div className="flex-1 flex overflow-hidden">
-        <Sidebar currentView={currentView} onViewChange={setCurrentView} />
-        <main className="flex-1 overflow-hidden">
-          {renderContent()}
-        </main>
-      </div>
-    </div>
+    <>
+      <SignedIn>
+        <div className="h-screen flex flex-col bg-gray-100">
+          <Header />
+          <div className="flex-1 flex overflow-hidden">
+            <Sidebar currentView={currentView} onViewChange={setCurrentView} />
+            <main className="flex-1 overflow-hidden">
+              {renderContent()}
+            </main>
+          </div>
+        </div>
+      </SignedIn>
+      <SignedOut>
+        <RedirectToSignIn />
+      </SignedOut>
+    </>
   );
 }
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { apiUrl } from '../../config/api';
 
 interface OpenAIResponse {
   response: string;
@@ -52,7 +53,7 @@ const OpenAIPlayground: React.FC = () => {
     setError(null);
 
     try {
-      const response = await axios.post('http://localhost:3001/api/test/openai', {
+      const response = await axios.post(apiUrl('/api/test/openai'), {
         message: prompt
       });
 

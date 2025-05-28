@@ -5,6 +5,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import PromptEditor from '../Editor/PromptEditor';
 import BusinessResultsPanel from './BusinessResultsPanel';
 import axios from 'axios';
+import { apiUrl } from '../../config/api';
 
 interface TestInput {
   id?: string;
@@ -62,7 +63,7 @@ interface ComparisonResult {
   };
 }
 
-const API_BASE = 'http://localhost:3001';
+// const API_BASE = 'http://localhost:3001'; // Removed for Vercel dev compatibility
 
 export const ABTestComparison: React.FC = () => {
   // State for the two variants being compared
@@ -210,7 +211,7 @@ export const ABTestComparison: React.FC = () => {
 
     setRunning(true);
     try {
-      const response = await axios.post(`${API_BASE}/api/ab-tests/compare`, {
+      const response = await axios.post(apiUrl('/api/ab-tests/compare'), {
         variantAId: variantA.id,
         variantBId: variantB.id,
         inputId: input.id
@@ -241,8 +242,8 @@ export const ABTestComparison: React.FC = () => {
         console.log('Saving variants before test execution...');
         try {
           const [responseA, responseB] = await Promise.all([
-            axios.post(`${API_BASE}/api/prompts`, variantA),
-            axios.post(`${API_BASE}/api/prompts`, variantB)
+            axios.post(apiUrl('/api/prompts'), variantA),
+            axios.post(apiUrl('/api/prompts'), variantB)
           ]);
           
           if (responseA.data.success && responseB.data.success) {
@@ -262,7 +263,7 @@ export const ABTestComparison: React.FC = () => {
       // Create test inputs in backend
       console.log('📝 Creating test inputs...');
       const inputPromises = testInputs.map(input => 
-        axios.post(`${API_BASE}/api/test-inputs`, input)
+        axios.post(apiUrl('/api/test-inputs'), input)
       );
       const inputResponses = await Promise.all(inputPromises);
       const savedInputs = inputResponses.map(r => r.data.input);
@@ -286,7 +287,7 @@ export const ABTestComparison: React.FC = () => {
       };
 
       console.log('📊 Test payload:', testPayload);
-      const testResponse = await axios.post(`${API_BASE}/api/ab-tests`, testPayload);
+      const testResponse = await axios.post(apiUrl('/api/ab-tests'), testPayload);
 
       if (testResponse.data.success) {
         const test = testResponse.data.test;
@@ -295,12 +296,12 @@ export const ABTestComparison: React.FC = () => {
 
         // Start the test
         console.log('🚀 Starting A/B test execution...');
-        await axios.post(`${API_BASE}/api/ab-tests/${test.id}/start`);
+        await axios.post(apiUrl(`/api/ab-tests/${test.id}/start`));
 
         // Monitor progress
         const pollInterval = setInterval(async () => {
           try {
-            const statusResponse = await axios.get(`${API_BASE}/api/ab-tests/${test.id}/execution`);
+            const statusResponse = await axios.get(apiUrl(`/api/ab-tests/${test.id}/execution`));
             const execution = statusResponse.data.execution;
             
             setProgress({
@@ -312,7 +313,7 @@ export const ABTestComparison: React.FC = () => {
               clearInterval(pollInterval);
               
               // Get final results
-              const resultsResponse = await axios.get(`${API_BASE}/api/ab-tests/${test.id}/results`);
+              const resultsResponse = await axios.get(apiUrl(`/api/ab-tests/${test.id}/results`));
               const testResults = resultsResponse.data.results;
               
               console.log('✅ A/B test completed:', testResults);

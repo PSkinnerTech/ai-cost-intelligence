@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@clerk/clerk-react": "^5.31.7",
     "@headlessui/react": "^2.2.4",
     "@heroicons/react": "^2.2.0",
     "@monaco-editor/react": "^4.7.0",

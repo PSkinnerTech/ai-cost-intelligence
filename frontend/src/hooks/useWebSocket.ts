@@ -199,6 +199,14 @@ export const useCostUpdates = () => {
   const [costs, setCosts] = useState<any[]>([]);
   const [totalCost, setTotalCost] = useState(0);
 
+  const getWebSocketURL = () => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Assuming vercel dev proxies WebSocket to the root or a specific path if configured.
+    // For now, let's try connecting to the root of the host serving the frontend.
+    // If your WebSocket server is on a specific path like /api/websocket, adjust accordingly.
+    return `${protocol}//${window.location.host}`;
+  };
+
   const handleMessage = useCallback((message: WebSocketMessage) => {
     if (message.type === 'cost_update') {
       setCosts(prev => [...prev, message.data]);
@@ -207,7 +215,7 @@ export const useCostUpdates = () => {
   }, []);
 
   const { isConnected, connectionStatus } = useWebSocket({
-    url: 'ws://localhost:3001',
+    url: getWebSocketURL(), // Dynamically set WebSocket URL
     onMessage: handleMessage
   });
 
@@ -218,6 +226,11 @@ export const useTestResults = () => {
   const [testResults, setTestResults] = useState<any[]>([]);
   const [currentTest, setCurrentTest] = useState<any>(null);
 
+  const getWebSocketURL = () => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}`;
+  };
+
   const handleMessage = useCallback((message: WebSocketMessage) => {
     if (message.type === 'test_complete') {
       setTestResults(prev => [...prev, message.data]);
@@ -226,7 +239,7 @@ export const useTestResults = () => {
   }, []);
 
   const { isConnected, connectionStatus, sendMessage } = useWebSocket({
-    url: 'ws://localhost:3001',
+    url: getWebSocketURL(), // Dynamically set WebSocket URL
     onMessage: handleMessage
   });
 
@@ -241,6 +254,11 @@ export const useTestResults = () => {
 export const useTraceUpdates = () => {
   const [traces, setTraces] = useState<any[]>([]);
   const [activeSpans, setActiveSpans] = useState<any[]>([]);
+
+  const getWebSocketURL = () => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}`;
+  };
 
   const handleMessage = useCallback((message: WebSocketMessage) => {
     if (message.type === 'trace_update') {
@@ -261,7 +279,7 @@ export const useTraceUpdates = () => {
   }, []);
 
   const { isConnected, connectionStatus } = useWebSocket({
-    url: 'ws://localhost:3001',
+    url: getWebSocketURL(), // Dynamically set WebSocket URL
     onMessage: handleMessage
   });
 

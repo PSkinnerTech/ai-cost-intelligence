@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { UserButton } from "@clerk/clerk-react";
+import { apiUrl } from '../../config/api';
 
 const Header: React.FC = () => {
   const [backendStatus, setBackendStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
@@ -11,7 +13,7 @@ const Header: React.FC = () => {
 
   const checkBackendConnection = async () => {
     try {
-      const response = await fetch('http://localhost:3001/health');
+      const response = await fetch(apiUrl('/api/health'));
       if (response.ok) {
         setBackendStatus('connected');
       } else {
@@ -98,6 +100,7 @@ const Header: React.FC = () => {
             🌐 Arize
           </span>
         </div>
+        <UserButton afterSignOutUrl="/" />
       </div>
     </header>
   );

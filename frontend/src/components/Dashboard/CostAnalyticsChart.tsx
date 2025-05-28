@@ -16,7 +16,6 @@ import {
   PieChart,
   Pie
 } from 'recharts';
-import axios from 'axios';
 
 interface CostData {
   name: string;
@@ -32,8 +31,6 @@ interface ModelCostData {
   tokens: number;
   efficiency: number;
 }
-
-const API_BASE = 'http://localhost:3001';
 
 export const CostAnalyticsChart: React.FC = () => {
   const [costTrends, setCostTrends] = useState<CostData[]>([]);

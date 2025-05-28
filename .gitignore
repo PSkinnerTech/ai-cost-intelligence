@@ -143,3 +143,4 @@ videos/
 *.exe
 *.o
 *.so 
+.vercel
