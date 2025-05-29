@@ -536,3 +536,72 @@ Platform ready for business intelligence transformation:
 - [ ] Optimize performance
 - [ ] Add requested features
 - [ ] Maintain documentation
+
+### 💳 **PHASE 6: NEVERMINED CREDIT SYSTEM & MONETIZATION INTEGRATION**
+
+## **🎯 Enhance Cost Optimization and Enable Prompt Monetization**
+
+This phase integrates the Nevermined protocol to introduce a decentralized credit-based system for LLM prompt executions and a pathway for monetizing optimized prompts.
+
+### **Key Objectives:**
+- **Cost Reduction**: Allow users to purchase LLM execution credits in bulk, potentially at discounted rates, and use these credits for A/B tests and production calls via Nevermined AI Agents.
+- **Monetization**: Enable users to publish their optimized prompts as digital assets on the Nevermined network, allowing other users/systems to pay for access and execution.
+- **Decentralized Execution**: Leverage Nevermined AI Agents for LLM task execution, potentially offering access to a wider variety of models or specialized agents.
+- **Transparent Cost Tracking**: Clearly show users the cost savings when using credits compared to direct API calls.
+
+### **Implementation Plan (based on NVM-INT.md)**
+
+#### **🎯 Milestone 6.1: Basic Nevermined Integration (Core SDK & Setup)**
+- [ ] **Install Nevermined SDK**: Integrate the necessary Nevermined SDK libraries into the backend.
+- [ ] **Environment Configuration**: Set up environment variables for Nevermined network (RPC, contract addresses, Marketplace API).
+- [ ] **Wallet/DID Setup**: Establish procedures for managing development DIDs and wallet keys securely.
+- [ ] **`NeverminedService` Creation**: Develop a core backend service to handle all SDK interactions (initializing SDK, basic contract calls).
+- [ ] **Credit Plan Definition**: Define and potentially publish sample credit plans on Nevermined testnet (e.g., for Agent1-GPT4, Agent2-GPT3.5 as per `NVM-INT.md`).
+- [ ] **Balance Checking**: Implement backend logic and API endpoint (`/api/credits/balance`) to check user credit balances for specific plans.
+- [ ] **Frontend UI (Basic)**: Basic UI to display available (mocked or testnet) credit plans and user balances.
+
+#### **🚀 Milestone 6.2: Credit-Based Execution & Cost Calculation**
+- [ ] **Update `ABTestExecutor`**: Add `executeWithCredits` method using `NeverminedService` to run prompts via Nevermined AI Agents.
+- [ ] **Update `CostCalculator`**: Implement `calculateCreditCost` and integrate it to show costs in both USD (based on credit price) and number of credits.
+- [ ] **New API Endpoint (`/api/test/execute-with-credits`)**: Backend endpoint to handle test execution requests using Nevermined credits.
+- [ ] **Frontend Test UI Update**: Allow users to select "Execute with Nevermined Credits" and choose an agent/plan.
+- [ ] **Result Display**: Show LLM results alongside credit cost and comparison to direct API cost.
+- [ ] **Phoenix Tracing**: Ensure that executions via Nevermined are still traced by Phoenix, capturing relevant metadata (agent DID, credits used, etc.). This might involve collaboration with Nevermined agent developers or wrapping calls.
+
+#### **📊 Milestone 6.3: Credit Purchase & Dashboard Enhancements**
+- [ ] **Credit Purchase API (`/api/credits/purchase`)**: Backend logic to facilitate credit purchases (may involve SDK calls or redirecting to Nevermined marketplace).
+- [ ] **Credit Comparison API (`/api/credits/comparison`)**: Backend endpoint to provide data for side-by-side cost comparison, as described in `NVM-INT.md`.
+- [ ] **Frontend Credit Purchase UI**: Interface for users to select and purchase credit plans.
+- [ ] **`CostDashboard` Update**: Integrate the `CostComparisonWidget` (from `NVM-INT.md`) to visualize direct API vs. credit costs and savings.
+- [ ] **Business Impact Update**: The `BusinessImpactCalculator` and its UI should reflect savings from using credits.
+
+#### **💰 Milestone 6.4: Prompt Monetization (MVP)**
+- [ ] **Publish Prompt API**: Backend logic allowing a user to publish an optimized prompt (template, parameters) as an asset on Nevermined via `NeverminedService`.
+- [ ] **Frontend Monetization UI**: Simple interface for a user to select a locally tested/optimized prompt and initiate the publishing process.
+- [ ] **(Future/Optional for MVP)**: UI to browse/discover prompts monetized by others within the app or link to a Nevermined marketplace.
+
+### **🎯 Success Metrics for Phase 6:**
+- **Cost Reduction**: Users can demonstrate and achieve measurable cost savings (e.g., 20-60%) by using Nevermined credits for LLM executions compared to direct API calls.
+- **Credit System Functionality**: Users can view plans, purchase credits (simulated or testnet), view balances, and execute tests using credits.
+- **Monetization MVP**: Users can successfully publish an optimized prompt to Nevermined testnet.
+- **Transparency**: Cost comparisons between direct API and credit-based executions are clearly displayed.
+- **User Adoption (Internal/Test)**: Successful internal testing of the credit purchase and execution flow.
+
+### **🏆 Expected Business Impact from Nevermined Integration:**
+- **Significant Cost Optimization**: Provides a direct mechanism for users to lower their LLM operational expenses.
+- **New Revenue Streams**: Enables monetization of intellectual property (optimized prompts).
+- **Enhanced Platform Value**: Positions the Arize A/B Testing GUI as a more complete economic platform for LLM operations, as envisioned in `NVM-INT.md`.
+- **Increased User Engagement**: Offers advanced features for power users and enterprise clients focused on cost control and IP leverage.
+- **Competitive Differentiation**: Unique offering combining prompt engineering, observability, and decentralized commerce.
+
+---
+
+### 🎁 **READY FOR PHASE 5: OPTIONAL ENHANCEMENTS**
+
+The platform is **production-ready** as-is. Optional future enhancements could include:
+
+1. **Export Functionality** - Save test results and winning prompts to files
+2. **LLM-as-Judge Integration** - Automated evaluation with quality scoring  
+3. **Advanced Caching** - Performance optimization for large datasets
+4. **Cloud Deployment** - Production scaling with containerization
+5. **User Authentication** - Multi-user support with role-based access

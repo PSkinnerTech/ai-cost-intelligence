@@ -110,6 +110,117 @@ Use React Context for:
 
 ---
 
+## Phase 6: Nevermined Credit System Integration
+
+This phase integrates Nevermined to introduce a credit-based system for LLM prompt execution, enabling cost optimization through bulk credit purchases and potential monetization of prompts.
+
+### 6.1 Prerequisites for Nevermined
+- **Nevermined SDK**: Install the relevant Nevermined SDK (e.g., `payments` or a more comprehensive one if available) for your backend environment.
+  ```bash
+  # Example, adjust per actual Nevermined SDK
+  npm install @nevermined-io/sdk --save 
+  ```
+- **Wallet & DID**: Set up a development wallet with a DID registered on the Nevermined test network.
+- **Testnet Tokens**: Acquire testnet USDC (or the relevant currency for Nevermined) for purchasing credits and paying for services.
+- **Nevermined API Key/Config**: If required for SDK interaction with Nevermined services.
+- **RPC Endpoint**: Access to a relevant blockchain testnet RPC endpoint (e.g., Sepolia, Mumbai) compatible with Nevermined.
+
+### 6.2 Backend Setup for Nevermined
+
+#### 6.2.1 Environment Variables
+Add new variables to your `.env` file:
+```bash
+NEVERMINED_RPC_HOST=your_rpc_endpoint_url
+NEVERMINED_ARTIFACTS_PATH=./node_modules/@nevermined-io/contracts/artifacts/
+NEVERMINED_MARKETPLACE_API_URI=nevermined_marketplace_url
+# Add any other SDK-specific variables, e.g., contract addresses if not auto-resolved by SDK
+ACCOUNT_PRIVATE_KEY=your_development_private_key # For testnet only
+```
+
+#### 6.2.2 Nevermined Service (`src/services/neverminedService.ts`)
+Create a new service to encapsulate all Nevermined SDK interactions:
+- Initialize Nevermined SDK with configuration.
+- Functions to:
+    - Create/manage credit plans (as per `NVM-INT.md`).
+    - Purchase credits for a user/plan.
+    - Check credit balance for a user/plan.
+    - Execute tasks via credited AI agents on Nevermined (`executeWithCredits`).
+    - Publish prompts as monetizable assets.
+    - Query Nevermined for agent details, service offerings.
+
+#### 6.2.3 Update `CostCalculator.ts`
+- Add methods based on `NVM-INT.md` to calculate costs for credit-based executions.
+  ```typescript
+  // Example addition
+  public calculateCreditCost(agentDID: string, creditsUsed: number): number {
+    // Fetch credit pricing for agentDID from Nevermined or config
+    // const pricing = this.neverminedService.getCreditPricing(agentDID);
+    // return creditsUsed * pricing.costPerCredit;
+    // Temporary example based on NVM-INT.md
+    const creditPricing: { [key: string]: number } = {
+      'agent-1-gpt4': 0.00005,    // $0.05 per 1000 credits (assuming 1 credit = 1 unit here)
+      'agent-2-gpt35': 0.00003,
+      'agent-3-mini': 0.00001
+    };
+    return creditsUsed * (creditPricing[agentDID] || 0.00005); // Default if agent not found
+  }
+  ```
+
+#### 6.2.4 Update `ABTestExecutor.ts` (or similar service)
+- Integrate the `executeWithCredits` method as detailed in `NVM-INT.md`.
+  - This involves checking balance, creating a task on Nevermined, and processing the result.
+
+#### 6.2.5 New API Endpoints for Credits
+Implement the Vercel serverless functions for credits:
+- `api/credits/plans.ts`: Fetch and list available credit plans from Nevermined or a pre-configured list.
+- `api/credits/purchase.ts`: Handle requests to purchase credits (this might involve redirecting to Nevermined Market or using SDK functions).
+- `api/credits/balance.ts`: Allow users to check their current credit balance for specific plans/agents.
+- `api/credits/comparison.ts`: Provides data for comparing direct API call costs vs. Nevermined credit costs (as outlined in `NVM-INT.md`).
+- `api/test/execute-with-credits.ts`: New endpoint to handle test executions via Nevermined.
+
+### 6.3 Frontend Development for Nevermined
+
+#### 6.3.1 Install SDK (if needed for frontend interactions, e.g., wallet connection)
+```bash
+# If direct frontend interaction with Nevermined is needed
+# npm install @nevermined-io/sdk-js # or similar
+```
+
+#### 6.3.2 New UI Components
+- **CreditManagementDashboard (`CreditDashboard.tsx`)**:
+    - Display list of available credit plans (fetched from `/api/credits/plans`).
+    - Show current credit balance (fetched from `/api/credits/balance`).
+    - Interface to purchase credits (e.g., input amount, select plan, call `/api/credits/purchase`).
+- **CostComparisonWidget (`CostComparisonWidget.tsx`)**:
+    - As detailed in `NVM-INT.md`, to show side-by-side cost of direct API vs. credits.
+    - Fetches data from `/api/credits/comparison` or calculates based on test results.
+
+#### 6.3.3 Update Existing Components
+- **Test Execution UI (e.g., `OpenAIPlayground.tsx` or `TestRunner.tsx`)**:
+    - Add option to select execution method: "Direct API" or "Nevermined Credits".
+    - If "Nevermined Credits" is chosen, allow selection of an AI agent/plan (fetched from backend).
+    - Call the new `/api/test/execute-with-credits` endpoint.
+- **`CostDashboard.tsx`**:
+    - Integrate the `CostComparisonWidget` or similar display to show potential savings with credits.
+    - Display data from `/api/credits/comparison` endpoint, perhaps comparing overall spending if direct vs. if credits were used.
+- **Business Impact Calculator UI**:
+    - Update to incorporate credit savings data from `BusinessImpactCalculator.ts` enhancements.
+
+### 6.4 Integration & Workflow
+- Connect new frontend components to the new backend API endpoints for credits.
+- Ensure the test execution flow allows users to choose between direct and credit-based execution.
+- Display comparative cost information clearly in the UI.
+- For prompt monetization: Add UI elements to "Publish Prompt to Nevermined" and potentially a view to see published/monetized prompts.
+
+### 6.5 Testing Nevermined Integration
+- Test credit purchase flow (simulated or on testnet).
+- Verify balance checking.
+- Test execution of prompts via credited agents on Nevermined testnet.
+- Validate cost calculations for credit-based executions against direct API calls.
+- Test monetization flow: publishing a prompt and simulating a purchase/execution by another user.
+
+---
+
 # 🚀 **ACTIONABLE BUSINESS OUTCOMES**
 
 ## **From Testing to Business Impact: Complete Workflow**

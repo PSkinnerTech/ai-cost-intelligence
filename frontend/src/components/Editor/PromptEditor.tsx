@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import axios from 'axios';
+import { calculateRealCost } from '../../config/pricing';
 
 // Types for our prompt management
 interface PromptVariable {
@@ -246,6 +247,9 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
     }
   }, []);
 
+  // Calculate real cost using actual token usage when available
+  const realCost = testResult?.usage ? calculateRealCost(testResult.usage, testResult.model || 'gpt-3.5-turbo') : null;
+
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header */}
@@ -391,6 +395,18 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
                   </div>
                   <div className="text-xs text-gray-600 max-h-32 overflow-auto">
                     {testResult.response}
+                  </div>
+                </div>
+
+                <div className="bg-green-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-green-800">Estimated Cost</span>
+                    <span className="text-lg font-bold text-green-600">
+                      ${realCost ? realCost.totalCost.toFixed(6) : '0.000000'}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-green-600">
+                    Real calculation based on actual token usage
                   </div>
                 </div>
               </div>

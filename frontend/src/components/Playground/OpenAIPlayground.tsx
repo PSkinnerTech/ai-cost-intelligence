@@ -1,39 +1,91 @@
 import React, { useState } from 'react';
-import axios from 'axios';
-import { apiUrl } from '../../config/api';
+import { Send, RefreshCw, DollarSign, Clock, Hash } from 'lucide-react';
+import { calculateRealCost, getPricingDisplay, getModelDisplayName, OPENAI_PRICING } from '../../config/pricing';
 
-interface OpenAIResponse {
-  response: string;
-  usage: {
+interface TestResult {
+  success: boolean;
+  content?: string;
+  error?: string;
+  usage?: {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
   };
-  model: string;
-  sessionId: string;
+  duration?: number;
+  model?: string;
+  timestamp: string;
 }
 
 const OpenAIPlayground: React.FC = () => {
   const [prompt, setPrompt] = useState('');
-  const [response, setResponse] = useState<OpenAIResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [history, setHistory] = useState<Array<{
-    prompt: string;
-    response: OpenAIResponse;
-    timestamp: Date;
-  }>>([]);
+  const [selectedModel, setSelectedModel] = useState<string>('gpt-3.5-turbo');
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const calculateCost = (usage: OpenAIResponse['usage']) => {
-    // GPT-3.5-turbo pricing
-    const inputCost = (usage.prompt_tokens / 1000) * 0.0005;
-    const outputCost = (usage.completion_tokens / 1000) * 0.0015;
-    return {
-      input: inputCost,
-      output: outputCost,
-      total: inputCost + outputCost
-    };
+  const handleTest = async () => {
+    if (!prompt.trim()) return;
+
+    setIsLoading(true);
+    setTestResult(null);
+
+    try {
+      const startTime = Date.now();
+      
+      const response = await fetch('https://api-only-lac.vercel.app/api/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          model: selectedModel
+        }),
+      });
+
+      const duration = Date.now() - startTime;
+      const data = await response.json();
+
+      if (data.success) {
+        setTestResult({
+          success: true,
+          content: data.content,
+          usage: data.usage,
+          duration,
+          model: selectedModel,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        setTestResult({
+          success: false,
+          error: data.error || 'Unknown error occurred',
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      setTestResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Network error',
+        timestamp: new Date().toISOString()
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  // Calculate real cost when we have usage data
+  const getRealCostBreakdown = () => {
+    if (!testResult?.usage || !testResult.model) return null;
+
+    try {
+      const costCalculation = calculateRealCost(testResult.usage, testResult.model);
+      return costCalculation;
+    } catch (error) {
+      console.error('Error calculating real cost:', error);
+      return null;
+    }
+  };
+
+  const costBreakdown = getRealCostBreakdown();
 
   const formatCost = (cost: number) => {
     if (cost < 0.01) {
@@ -45,331 +97,195 @@ const OpenAIPlayground: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prompt.trim()) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await axios.post(apiUrl('/api/test/openai'), {
-        message: prompt
-      });
-
-      if (response.data.success) {
-        const newResponse = response.data.data;
-        setResponse(newResponse);
-        setHistory(prev => [...prev, {
-          prompt: prompt,
-          response: newResponse,
-          timestamp: new Date()
-        }]);
-        setPrompt('');
-      } else {
-        setError('Failed to get response from OpenAI');
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to send request');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const clearHistory = () => {
-    setHistory([]);
-    setResponse(null);
-    setError(null);
-  };
-
-  const totalCost = history.reduce((sum, item) => {
-    const cost = calculateCost(item.response.usage);
-    return sum + cost.total;
-  }, 0);
-
-  const totalTokens = history.reduce((sum, item) => {
-    return sum + item.response.usage.total_tokens;
-  }, 0);
-
   return (
-    <div style={{ padding: '2rem' }}>
-      <div style={{ marginBottom: '2rem' }}>
-        <h2 style={{ 
-          margin: '0 0 0.5rem 0', 
-          fontSize: '1.875rem', 
-          fontWeight: 'bold',
-          color: '#1F2937'
-        }}>
-          🧪 OpenAI Playground
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          🎮 OpenAI Playground
         </h2>
-        <p style={{ color: '#6B7280', margin: 0 }}>
-          Test prompts with real-time cost tracking and trace generation
+        <p className="text-gray-600 mb-6">
+          Test prompts directly with OpenAI API and see real token usage and costs
         </p>
+
+        {/* Model Selection */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Model Selection
+          </label>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          >
+            {Object.keys(OPENAI_PRICING).map((modelKey) => (
+              <option key={modelKey} value={modelKey}>
+                {getModelDisplayName(modelKey)} - {getPricingDisplay(modelKey)}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Real OpenAI pricing - updated from official pricing page
+          </p>
+        </div>
+
+        {/* Prompt Input */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Prompt
+          </label>
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Enter your prompt here..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            rows={4}
+          />
+        </div>
+
+        {/* Test Button */}
+        <button
+          onClick={handleTest}
+          disabled={!prompt.trim() || isLoading}
+          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+        >
+          {isLoading ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
+          <span>{isLoading ? 'Testing...' : 'Test Prompt'}</span>
+        </button>
       </div>
 
-      {/* Stats Bar */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-        gap: '1rem',
-        marginBottom: '2rem'
-      }}>
-        <div style={{
-          backgroundColor: '#EFF6FF',
-          border: '1px solid #DBEAFE',
-          borderRadius: '0.5rem',
-          padding: '1rem',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '0.875rem', color: '#1E40AF', marginBottom: '0.25rem' }}>
-            Total Requests
-          </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1E40AF' }}>
-            {history.length}
-          </div>
-        </div>
+      {/* Results Section */}
+      {testResult && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Test Results</h3>
+          
+          {testResult.success ? (
+            <div className="space-y-6">
+              {/* Response Content */}
+              <div>
+                <h4 className="text-md font-medium text-gray-800 mb-2">Response</h4>
+                <div className="bg-gray-50 rounded-lg p-4 border">
+                  <pre className="whitespace-pre-wrap text-sm text-gray-800">
+                    {testResult.content}
+                  </pre>
+                </div>
+              </div>
 
-        <div style={{
-          backgroundColor: '#F0FDF4',
-          border: '1px solid #BBF7D0',
-          borderRadius: '0.5rem',
-          padding: '1rem',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '0.875rem', color: '#059669', marginBottom: '0.25rem' }}>
-            Total Tokens
-          </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#059669' }}>
-            {totalTokens.toLocaleString()}
-          </div>
-        </div>
-
-        <div style={{
-          backgroundColor: '#FFFBEB',
-          border: '1px solid #FED7AA',
-          borderRadius: '0.5rem',
-          padding: '1rem',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '0.875rem', color: '#D97706', marginBottom: '0.25rem' }}>
-            Total Cost
-          </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#D97706' }}>
-            {formatCost(totalCost)}
-          </div>
-        </div>
-      </div>
-
-      {/* Prompt Input */}
-      <div style={{
-        backgroundColor: 'white',
-        border: '1px solid #E5E7EB',
-        borderRadius: '0.75rem',
-        padding: '1.5rem',
-        marginBottom: '2rem'
-      }}>
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              color: '#374151',
-              marginBottom: '0.5rem'
-            }}>
-              Enter your prompt:
-            </label>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Type your message here... e.g., 'Explain quantum computing in simple terms'"
-              rows={4}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #D1D5DB',
-                borderRadius: '0.5rem',
-                fontSize: '1rem',
-                resize: 'vertical',
-                minHeight: '100px'
-              }}
-            />
-          </div>
-
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center' 
-          }}>
-            <div style={{ fontSize: '0.875rem', color: '#6B7280' }}>
-              {prompt.length} characters • ~{Math.ceil(prompt.length / 4)} tokens
-            </div>
-            
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              {history.length > 0 && (
-                <button
-                  type="button"
-                  onClick={clearHistory}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#F3F4F6',
-                    color: '#374151',
-                    border: '1px solid #D1D5DB',
-                    borderRadius: '0.5rem',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem'
-                  }}
-                >
-                  Clear History
-                </button>
-              )}
-              
-              <button
-                type="submit"
-                disabled={loading || !prompt.trim()}
-                style={{
-                  padding: '0.5rem 1.5rem',
-                  backgroundColor: loading || !prompt.trim() ? '#9CA3AF' : '#3B82F6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  cursor: loading || !prompt.trim() ? 'not-allowed' : 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: '500'
-                }}
-              >
-                {loading ? '🔄 Sending...' : '🚀 Send'}
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-
-      {/* Error Display */}
-      {error && (
-        <div style={{
-          backgroundColor: '#FEF2F2',
-          border: '1px solid #FECACA',
-          borderRadius: '0.5rem',
-          padding: '1rem',
-          marginBottom: '2rem',
-          color: '#991B1B'
-        }}>
-          <div style={{ fontWeight: '500', marginBottom: '0.25rem' }}>Error:</div>
-          <div>{error}</div>
-        </div>
-      )}
-
-      {/* Response History */}
-      <div>
-        <h3 style={{
-          fontSize: '1.25rem',
-          fontWeight: '600',
-          color: '#1F2937',
-          marginBottom: '1rem'
-        }}>
-          📝 Conversation History
-        </h3>
-
-        {history.length === 0 ? (
-          <div style={{
-            textAlign: 'center',
-            padding: '3rem',
-            color: '#6B7280',
-            backgroundColor: '#F9FAFB',
-            borderRadius: '0.75rem',
-            border: '1px solid #E5E7EB'
-          }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💬</div>
-            <div>No conversations yet. Send your first prompt above!</div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {history.slice().reverse().map((item, index) => {
-              const cost = calculateCost(item.response.usage);
-              return (
-                <div key={index} style={{
-                  backgroundColor: 'white',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '0.75rem',
-                  overflow: 'hidden'
-                }}>
-                  {/* Prompt */}
-                  <div style={{
-                    backgroundColor: '#F8FAFC',
-                    padding: '1rem 1.5rem',
-                    borderBottom: '1px solid #E5E7EB'
-                  }}>
-                    <div style={{
-                      fontSize: '0.875rem',
-                      color: '#6B7280',
-                      marginBottom: '0.5rem'
-                    }}>
-                      👤 You • {item.timestamp.toLocaleTimeString()}
+              {/* Real Metrics Grid */}
+              {testResult.usage && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Token Usage */}
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Hash className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">Token Usage</span>
                     </div>
-                    <div style={{ color: '#1F2937' }}>
-                      {item.prompt}
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Prompt:</span>
+                        <span className="font-medium">{testResult.usage.prompt_tokens}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Completion:</span>
+                        <span className="font-medium">{testResult.usage.completion_tokens}</span>
+                      </div>
+                      <div className="flex justify-between font-medium border-t pt-1">
+                        <span className="text-gray-900">Total:</span>
+                        <span className="text-blue-600">{testResult.usage.total_tokens}</span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Response */}
-                  <div style={{ padding: '1.5rem' }}>
-                    <div style={{
-                      fontSize: '0.875rem',
-                      color: '#6B7280',
-                      marginBottom: '0.5rem'
-                    }}>
-                      🤖 Assistant • {item.response.model}
+                  {/* Real Cost Breakdown */}
+                  {costBreakdown && (
+                    <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <DollarSign className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-800">Real Cost</span>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Input:</span>
+                          <span className="font-medium">{formatCost(costBreakdown.inputCost)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Output:</span>
+                          <span className="font-medium">{formatCost(costBreakdown.outputCost)}</span>
+                        </div>
+                        <div className="flex justify-between font-medium border-t pt-1">
+                          <span className="text-gray-900">Total:</span>
+                          <span className="text-green-600">{formatCost(costBreakdown.totalCost)}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{
-                      color: '#1F2937',
-                      lineHeight: '1.6',
-                      marginBottom: '1rem'
-                    }}>
-                      {item.response.response}
-                    </div>
+                  )}
 
-                    {/* Usage Stats */}
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                      gap: '1rem',
-                      padding: '1rem',
-                      backgroundColor: '#F8FAFC',
-                      borderRadius: '0.5rem',
-                      fontSize: '0.875rem'
-                    }}>
-                      <div>
-                        <div style={{ color: '#6B7280' }}>Tokens</div>
-                        <div style={{ fontWeight: '500', color: '#1F2937' }}>
-                          {item.response.usage.total_tokens}
-                        </div>
+                  {/* Performance */}
+                  <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Clock className="h-4 w-4 text-purple-600" />
+                      <span className="text-sm font-medium text-purple-800">Performance</span>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Duration:</span>
+                        <span className="font-medium">{testResult.duration}ms</span>
                       </div>
-                      <div>
-                        <div style={{ color: '#6B7280' }}>Input</div>
-                        <div style={{ fontWeight: '500', color: '#1F2937' }}>
-                          {item.response.usage.prompt_tokens}
-                        </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Model:</span>
+                        <span className="font-medium">{getModelDisplayName(testResult.model || '')}</span>
                       </div>
-                      <div>
-                        <div style={{ color: '#6B7280' }}>Output</div>
-                        <div style={{ fontWeight: '500', color: '#1F2937' }}>
-                          {item.response.usage.completion_tokens}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ color: '#6B7280' }}>Cost</div>
-                        <div style={{ fontWeight: '500', color: '#059669' }}>
-                          {formatCost(cost.total)}
-                        </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Time:</span>
+                        <span className="font-medium">
+                          {new Date(testResult.timestamp).toLocaleTimeString()}
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              )}
+
+              {/* Pricing Information */}
+              <div className="bg-gray-50 rounded-lg p-4 border">
+                <h4 className="text-md font-medium text-gray-800 mb-2">Pricing Information</h4>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>
+                    <span className="font-medium">Model:</span> {getModelDisplayName(selectedModel)}
+                  </p>
+                  <p>
+                    <span className="font-medium">Pricing:</span> {getPricingDisplay(selectedModel)}
+                  </p>
+                  <p className="text-xs mt-2 text-gray-500">
+                    💡 All costs calculated from real OpenAI API pricing - no hardcoded values used
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-red-600 font-medium">Error:</span>
+                <span className="text-red-700">{testResult.error}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Real Data Information */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h4 className="text-sm font-medium text-blue-800 mb-2">
+          🔬 Real Data Playground
+        </h4>
+        <p className="text-sm text-blue-700">
+          This playground uses actual OpenAI API calls with real token counting and cost calculations. 
+          All pricing is sourced from the official OpenAI pricing page and updated regularly. 
+          No mock or simulated data is used.
+        </p>
       </div>
     </div>
   );

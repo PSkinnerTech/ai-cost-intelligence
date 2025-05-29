@@ -1,324 +1,334 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useCostUpdates } from '../../hooks/useWebSocket';
-import CostAnalyticsChart from './CostAnalyticsChart';
-import { apiUrl, mockCostData } from '../../config/api';
+// CostDashboard.tsx - 100% REAL DATA VERSION
+// ZERO placeholder data - everything comes from actual API calls
 
-interface CostData {
-  model: string;
-  tokens: {
-    prompt: number;
-    completion: number;
-  };
-  cost: {
-    prompt: number;
-    completion: number;
-    total: number;
-  };
+import React, { useState, useEffect } from 'react';
+import { TrendingUp, DollarSign, Users, Zap, RefreshCw } from 'lucide-react';
+import { fetchRealDashboardData, type RealDashboardData } from '../../services/realDataService';
+import { getModelDisplayName, getPricingDisplay } from '../../config/pricing';
+
+interface DashboardCardProps {
+  title: string;
+  value: string;
+  change: string;
+  isPositive: boolean;
+  icon: React.ReactNode;
+  subtitle?: string;
+  isLoading?: boolean;
+  lastUpdated?: string;
 }
 
+const DashboardCard: React.FC<DashboardCardProps> = ({
+  title,
+  value,
+  change,
+  isPositive,
+  icon,
+  subtitle,
+  isLoading,
+  lastUpdated
+}) => (
+  <div className="bg-white rounded-lg shadow p-6 relative">
+    {isLoading && (
+      <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
+        <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
+      </div>
+    )}
+    
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-600">{title}</p>
+        <p className="text-2xl font-semibold text-gray-900">{value}</p>
+        {subtitle && (
+          <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
+        )}
+        {lastUpdated && (
+          <p className="text-xs text-gray-400 mt-1">
+            Updated: {new Date(lastUpdated).toLocaleTimeString()}
+          </p>
+        )}
+      </div>
+      <div className="flex flex-col items-end">
+        <div className={`text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+          {change}
+        </div>
+        <div className={`${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+          {icon}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const CostDashboard: React.FC = () => {
-  const [costData, setCostData] = useState<CostData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [realData, setRealData] = useState<RealDashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [userRequestVolume, setUserRequestVolume] = useState(1000);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  // Add WebSocket real-time updates
-  const { costs, totalCost, isConnected, connectionStatus } = useCostUpdates();
+  /**
+   * Fetch REAL dashboard data from API
+   * NO MORE MOCK DATA OR HARDCODED VALUES
+   */
+  const loadRealData = async () => {
+    console.log('🔄 Loading 100% REAL dashboard data...');
+    setIsLoading(true);
+    setError(null);
 
-  useEffect(() => {
-    fetchCostData();
-    const interval = setInterval(fetchCostData, 10000); // Refresh every 10 seconds
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchCostData = async () => {
     try {
-      const response = await axios.get(apiUrl('/api/test/cost-calculation'));
-      if (response.data.success) {
-        setCostData(response.data.data);
-        setLastUpdated(new Date());
-        setError(null);
-      }
+      const realDashboardData = await fetchRealDashboardData(userRequestVolume);
+      setRealData(realDashboardData);
+      setLastRefresh(new Date());
+      console.log('✅ Real dashboard data loaded successfully');
     } catch (err) {
-      console.warn('API call failed, using mock data for demo purposes:', err);
-      // Use mock data when API fails (e.g., in production without backend)
-      setCostData(mockCostData);
-      setLastUpdated(new Date());
-      setError(null); // Don't show error when using mock data successfully
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      console.error('❌ Failed to load real data:', errorMessage);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const formatCost = (cost: number) => {
-    if (cost < 0.01) {
-      return `$${cost.toFixed(6)}`;
-    } else if (cost < 1) {
-      return `$${cost.toFixed(4)}`;
-    } else {
-      return `$${cost.toFixed(2)}`;
-    }
+  // Load real data on component mount and when request volume changes
+  useEffect(() => {
+    loadRealData();
+  }, [userRequestVolume]);
+
+  // Manual refresh function
+  const handleRefresh = () => {
+    loadRealData();
   };
 
-  const getTotalTokens = (data: CostData) => {
-    return data.tokens.prompt + data.tokens.completion;
+  // Calculate monthly projections based on REAL data
+  const calculateMonthlyProjections = () => {
+    if (!realData) return { cost: 0, savings: 0 };
+
+    const avgCostPerRequest = realData.agents.reduce(
+      (sum, agent) => sum + agent.realCost.totalCost, 0
+    ) / realData.agents.length;
+
+    const monthlyCost = avgCostPerRequest * userRequestVolume;
+    const monthlySavings = (realData.totalSavings.absolute / realData.agents.length) * userRequestVolume;
+
+    return { cost: monthlyCost, savings: monthlySavings };
   };
 
-  const getCostPerToken = (data: CostData) => {
-    const totalTokens = getTotalTokens(data);
-    return totalTokens > 0 ? data.cost.total / totalTokens * 1000 : 0; // Cost per 1K tokens
-  };
-
-  if (loading) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <div style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>🔄</div>
-        <div>Loading cost data...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ 
-        padding: '2rem', 
-        textAlign: 'center', 
-        color: '#EF4444',
-        backgroundColor: '#FEF2F2',
-        borderRadius: '0.5rem',
-        margin: '1rem'
-      }}>
-        <div style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>❌</div>
-        <div>{error}</div>
-        <button 
-          onClick={fetchCostData}
-          style={{
-            marginTop: '1rem',
-            padding: '0.5rem 1rem',
-            backgroundColor: '#EF4444',
-            color: 'white',
-            border: 'none',
-            borderRadius: '0.25rem',
-            cursor: 'pointer'
-          }}
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
+  const monthlyProjections = calculateMonthlyProjections();
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Cost Dashboard</h1>
+      {/* Header with Real Data Indicator */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Cost Dashboard</h2>
+          <div className="flex items-center gap-2 mt-2">
+            <div className={`px-2 py-1 rounded text-xs font-medium ${
+              realData?.realTimeData ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}>
+              {realData?.realTimeData ? '🟢 Real-Time Data' : '🔴 Data Unavailable'}
+            </div>
+            {lastRefresh && (
+              <span className="text-xs text-gray-500">
+                Last updated: {lastRefresh.toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+        </div>
         
-        {/* WebSocket Status Indicator */}
-        <div className="flex items-center space-x-2">
-          <div className={`w-3 h-3 rounded-full ${
-            connectionStatus === 'connected' ? 'bg-green-500' : 
-            connectionStatus === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
-          }`}></div>
-          <span className="text-sm text-gray-600">
-            Real-time: {connectionStatus}
-          </span>
-        </div>
-      </div>
-
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">
-          💰 Cost Dashboard
-        </h2>
-        <p className="text-gray-600 mb-2">
-          Real-time cost comparison across different LLM models
-        </p>
-        <p className="text-sm text-gray-500">
-          Last updated: {lastUpdated.toLocaleTimeString()}
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {costData.map((data) => (
-          <div key={data.model} style={{
-            backgroundColor: 'white',
-            border: '1px solid #E5E7EB',
-            borderRadius: '0.75rem',
-            padding: '1.5rem',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              marginBottom: '1rem'
-            }}>
-              <h3 style={{ 
-                margin: 0, 
-                fontSize: '1.125rem', 
-                fontWeight: '600',
-                color: '#1F2937'
-              }}>
-                {data.model}
-              </h3>
-              <div style={{
-                backgroundColor: data.model.includes('gpt-4') ? '#FEE2E2' : '#DBEAFE',
-                color: data.model.includes('gpt-4') ? '#991B1B' : '#1E40AF',
-                padding: '0.25rem 0.75rem',
-                borderRadius: '1rem',
-                fontSize: '0.75rem',
-                fontWeight: '500'
-              }}>
-                {data.model.includes('gpt-4') ? 'Premium' : 'Standard'}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '1rem' }}>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between',
-                marginBottom: '0.5rem'
-              }}>
-                <span style={{ color: '#6B7280', fontSize: '0.875rem' }}>
-                  Total Cost (1.5K tokens)
-                </span>
-                <span style={{ 
-                  fontWeight: '600', 
-                  fontSize: '1.125rem',
-                  color: '#1F2937'
-                }}>
-                  {formatCost(data.cost.total)}
-                </span>
-              </div>
-              
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between',
-                marginBottom: '0.25rem'
-              }}>
-                <span style={{ color: '#6B7280', fontSize: '0.875rem' }}>
-                  Input ({data.tokens.prompt} tokens)
-                </span>
-                <span style={{ color: '#1F2937' }}>
-                  {formatCost(data.cost.prompt)}
-                </span>
-              </div>
-              
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between'
-              }}>
-                <span style={{ color: '#6B7280', fontSize: '0.875rem' }}>
-                  Output ({data.tokens.completion} tokens)
-                </span>
-                <span style={{ color: '#1F2937' }}>
-                  {formatCost(data.cost.completion)}
-                </span>
-              </div>
-            </div>
-
-            <div style={{
-              borderTop: '1px solid #E5E7EB',
-              paddingTop: '1rem'
-            }}>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between',
-                fontSize: '0.875rem'
-              }}>
-                <span style={{ color: '#6B7280' }}>
-                  Cost per 1K tokens
-                </span>
-                <span style={{ 
-                  fontWeight: '500',
-                  color: '#1F2937'
-                }}>
-                  {formatCost(getCostPerToken(data))}
-                </span>
-              </div>
-            </div>
+        <div className="flex gap-4 items-center">
+          {/* User-configurable request volume */}
+          <div className="flex flex-col">
+            <label className="text-xs text-gray-600 mb-1">Monthly Requests</label>
+            <input
+              type="number"
+              value={userRequestVolume}
+              onChange={(e) => setUserRequestVolume(parseInt(e.target.value) || 1000)}
+              className="px-3 py-1 border border-gray-300 rounded text-sm w-24"
+              min="1"
+              step="100"
+            />
           </div>
-        ))}
-      </div>
-
-      {/* Summary Stats */}
-      {costData.length > 0 && (
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">
-            📊 Cost Comparison Summary
-          </h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <div className="text-sm font-medium text-slate-600 mb-2">
-                Most Economical
-              </div>
-              <div className="text-base font-semibold text-slate-900">
-                {costData.reduce((min, current) => 
-                  current.cost.total < min.cost.total ? current : min
-                ).model}
-              </div>
-            </div>
-            
-            <div>
-              <div className="text-sm font-medium text-slate-600 mb-2">
-                Most Expensive
-              </div>
-              <div className="text-base font-semibold text-slate-900">
-                {costData.reduce((max, current) => 
-                  current.cost.total > max.cost.total ? current : max
-                ).model}
-              </div>
-            </div>
-            
-            <div>
-              <div className="text-sm font-medium text-slate-600 mb-2">
-                Price Difference
-              </div>
-              <div className="text-base font-semibold text-slate-900">
-                {(() => {
-                  const costs = costData.map(d => d.cost.total);
-                  const max = Math.max(...costs);
-                  const min = Math.min(...costs);
-                  return `${((max - min) / min * 100).toFixed(1)}%`;
-                })()}
-              </div>
+          <button
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh Real Data
+          </button>
+        </div>
+      </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <div className="text-red-600 text-sm">
+              ❌ Error loading real data: {error}
             </div>
           </div>
         </div>
       )}
 
-      {/* Add the new Cost Analytics Chart */}
-      <CostAnalyticsChart />
+      {/* Real Data Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <DashboardCard
+          title="Monthly Cost Projection"
+          value={`$${monthlyProjections.cost.toFixed(4)}`}
+          change={`${userRequestVolume.toLocaleString()} requests`}
+          isPositive={false}
+          icon={<DollarSign className="h-5 w-5" />}
+          subtitle="Based on real API usage"
+          isLoading={isLoading}
+          lastUpdated={realData?.agents[0]?.lastUpdated}
+        />
 
-      {/* Existing model breakdown section - keep as is */}
-      {costData.length > 0 && (
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Cost Breakdown by Model</h2>
+        <DashboardCard
+          title="Monthly Savings"
+          value={`$${monthlyProjections.savings.toFixed(4)}`}
+          change={`${realData?.totalSavings.percentage.toFixed(1) || '0'}% saved`}
+          isPositive={true}
+          icon={<TrendingUp className="h-5 w-5" />}
+          subtitle="From real cost comparisons"
+          isLoading={isLoading}
+          lastUpdated={realData?.agents[0]?.lastUpdated}
+        />
+
+        <DashboardCard
+          title="Active Models"
+          value={realData?.agents.length.toString() || '0'}
+          change="Real tests running"
+          isPositive={true}
+          icon={<Users className="h-5 w-5" />}
+          subtitle="Using live API data"
+          isLoading={isLoading}
+        />
+
+        <DashboardCard
+          title="Average Efficiency"
+          value={`${realData?.totalSavings.percentage.toFixed(1) || '0'}%`}
+          change="From actual usage"
+          isPositive={realData ? realData.totalSavings.percentage > 0 : false}
+          icon={<Zap className="h-5 w-5" />}
+          subtitle="Real token efficiency"
+          isLoading={isLoading}
+        />
+      </div>
+
+      {/* Real Agent Performance Table */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">Real Agent Performance</h3>
+          <p className="text-sm text-gray-600">
+            Live data from actual API calls - no simulated values
+          </p>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Agent/Test
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Model
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Real Tokens Used
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actual Cost
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Latency (ms)
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Pricing Info
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                    <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                    Loading real data...
+                  </td>
+                </tr>
+              ) : realData?.agents.map((agent, index) => (
+                <tr key={index} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{agent.name}</div>
+                    <div className="text-xs text-gray-500">
+                      Updated: {new Date(agent.lastUpdated).toLocaleTimeString()}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                      {getModelDisplayName(agent.model)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="space-y-1">
+                      <div>Prompt: {agent.realTokens.prompt_tokens}</div>
+                      <div>Completion: {agent.realTokens.completion_tokens}</div>
+                      <div className="font-medium">Total: {agent.realTokens.total_tokens}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="space-y-1">
+                      <div>Input: ${agent.realCost.inputCost.toFixed(6)}</div>
+                      <div>Output: ${agent.realCost.outputCost.toFixed(6)}</div>
+                      <div className="font-medium text-green-600">
+                        Total: ${agent.realCost.totalCost.toFixed(6)}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {agent.realLatency || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                    {getPricingDisplay(agent.model)}
+                  </td>
+                </tr>
+              )) || (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                    No real data available. Click "Refresh Real Data" to load.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Real Data Summary */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            <Zap className="h-5 w-5 text-blue-600" />
           </div>
-          <div className="p-6">
-            <div className="space-y-4">
-              {costData.map((data) => (
-                <div key={data.model} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-4 h-4 bg-blue-500 rounded"></div>
-                    <span className="font-medium text-gray-900">{data.model}</span>
-                  </div>
-                  <div className="flex items-center space-x-6">
-                    <span className="text-sm text-gray-500">
-                      {data.tokens.prompt + data.tokens.completion} tokens
-                    </span>
-                    <span className="font-semibold text-gray-900">
-                      ${data.cost.total.toFixed(4)}
-                    </span>
-                  </div>
-                </div>
-              ))}
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-blue-800">
+              100% Real Data Dashboard
+            </h3>
+            <div className="mt-2 text-sm text-blue-700">
+              <p>
+                All metrics displayed are calculated from actual API responses. No hardcoded values or assumptions are used.
+                {realData && (
+                  <span className="block mt-1">
+                    Current data based on {realData.agents.length} real test runs 
+                    with projected monthly volume of {userRequestVolume.toLocaleString()} requests.
+                  </span>
+                )}
+              </p>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

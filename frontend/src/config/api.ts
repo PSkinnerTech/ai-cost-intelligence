@@ -7,8 +7,8 @@ const getApiBaseUrl = (): string => {
     return 'http://localhost:3001';
   }
   
-  // In production, use relative paths (Vercel will handle routing)
-  return '';
+  // In production, use our stable backend alias (doesn't change with deployments)
+  return 'https://api-only-lac.vercel.app';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -21,7 +21,18 @@ export const apiUrl = (path: string): string => {
   return `${API_BASE_URL}/${path}`;
 };
 
-// Mock data for production fallback
+// Nevermined API endpoints
+export const API_ENDPOINTS = {
+  HEALTH: '/api/health',
+  TEST: '/api/test',
+  NEVERMINED: {
+    INIT: '/api/init',
+    CREDITS: '/api/credits',
+    COMPARISON: '/api/comparison'
+  }
+};
+
+// Mock data for development fallback (kept for reference)
 export const mockCostData = [
   {
     model: "gpt-3.5-turbo",

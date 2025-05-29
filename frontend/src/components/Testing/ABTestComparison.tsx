@@ -491,36 +491,23 @@ export const ABTestComparison: React.FC = () => {
                 className="w-full"
               />
             ) : (
-              <>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                 <div className="mb-4 text-sm text-blue-600 bg-blue-50 p-3 rounded">
-                  🎯 Demo Mode: Showing sample Business Intelligence Results
+                  🎯 A/B Testing with Real Business Intelligence
                 </div>
                 
-                <BusinessResultsPanel 
-                  testResults={{
-                    analysis: {
-                      variants: [
-                        {
-                          variantName: 'Variant A',
-                          metrics: { avgCost: 0.000039, avgLatency: 1200, avgTokens: 39 },
-                          sampleSize: 2
-                        },
-                        {
-                          variantName: 'Variant B',
-                          metrics: { avgCost: 0.000464, avgLatency: 3500, avgTokens: 327 },
-                          sampleSize: 2
-                        }
-                      ],
-                      overallWinner: { variantName: 'Variant A' },
-                      statisticalSignificance: true,
-                      pValue: 0.01,
-                      effectSize: 105.98
-                    }
-                  }}
-                  isLoading={false}
-                  className="w-full"
-                />
-              </>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-blue-800 mb-2">
+                    🚀 Coming Soon: Real A/B Test Intelligence
+                  </h4>
+                  <p className="text-sm text-blue-700">
+                    We're building comprehensive A/B testing that will compare your prompt variants 
+                    and provide real insights based on actual performance metrics, cost analysis, 
+                    token efficiency, and statistical significance from live API responses. 
+                    No mock data - everything will be calculated from real API calls.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         </div>

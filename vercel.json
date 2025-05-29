@@ -1,15 +1,9 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "**/*.ts",
-      "use": "@vercel/node"
+  "buildCommand": "echo 'No build needed'",
+  "outputDirectory": "public",
+  "functions": {
+    "*.ts": {
+      "runtime": "@vercel/node"
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
-  ]
+  }
 } 

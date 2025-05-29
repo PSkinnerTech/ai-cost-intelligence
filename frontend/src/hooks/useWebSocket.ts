@@ -17,6 +17,8 @@ interface UseWebSocketOptions {
   onError?: (error: Event) => void;
   reconnectAttempts?: number;
   reconnectInterval?: number;
+  silentMode?: boolean;
+  enabled?: boolean; // New option to disable WebSocket completely
 }
 
 interface UseWebSocketReturn {
@@ -25,7 +27,7 @@ interface UseWebSocketReturn {
   sendMessage: (message: any) => void;
   connect: () => void;
   disconnect: () => void;
-  connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error';
+  connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error' | 'disabled';
 }
 
 export const useWebSocket = (options: UseWebSocketOptions): UseWebSocketReturn => {
@@ -35,13 +37,15 @@ export const useWebSocket = (options: UseWebSocketOptions): UseWebSocketReturn =
     onConnect,
     onDisconnect,
     onError,
-    reconnectAttempts = 3,
-    reconnectInterval = 5000
+    reconnectAttempts = 1, // Reduced to 1 attempt
+    reconnectInterval = 15000, // Increased to 15 seconds
+    silentMode = true, // Default to silent
+    enabled = false // Default to disabled in production
   } = options;
 
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error' | 'disabled'>('disabled');
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -70,6 +74,12 @@ export const useWebSocket = (options: UseWebSocketOptions): UseWebSocketReturn =
   }, [onError]);
 
   const connect = useCallback(() => {
+    // Don't connect if disabled
+    if (!enabled) {
+      setConnectionStatus('disabled');
+      return;
+    }
+
     // Prevent multiple simultaneous connection attempts
     if (isConnectingRef.current || wsRef.current?.readyState === WebSocket.OPEN) {
       return;
@@ -89,7 +99,9 @@ export const useWebSocket = (options: UseWebSocketOptions): UseWebSocketReturn =
         reconnectCountRef.current = 0;
         isConnectingRef.current = false;
         memoizedOnConnect.current?.();
-        console.log('✅ WebSocket connected to:', url);
+        if (!silentMode) {
+          console.log('✅ WebSocket connected to:', url);
+        }
       };
 
       wsRef.current.onmessage = (event) => {
@@ -98,7 +110,9 @@ export const useWebSocket = (options: UseWebSocketOptions): UseWebSocketReturn =
           setLastMessage(message);
           memoizedOnMessage.current?.(message);
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
+          if (!silentMode) {
+            console.error('Failed to parse WebSocket message:', error);
+          }
         }
       };
 
@@ -107,17 +121,18 @@ export const useWebSocket = (options: UseWebSocketOptions): UseWebSocketReturn =
         setConnectionStatus('disconnected');
         isConnectingRef.current = false;
         memoizedOnDisconnect.current?.();
-        console.log('🔌 WebSocket disconnected');
-
-        if (reconnectCountRef.current < reconnectAttempts) {
+        
+        // Only attempt reconnect if enabled and under limit
+        if (enabled && reconnectCountRef.current < reconnectAttempts) {
           reconnectCountRef.current++;
-          console.log(`🔄 Attempting to reconnect (${reconnectCountRef.current}/${reconnectAttempts}) in ${reconnectInterval}ms...`);
+          if (!silentMode) {
+            console.log(`🔄 WebSocket reconnecting (${reconnectCountRef.current}/${reconnectAttempts})...`);
+          }
           
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, reconnectInterval);
         } else {
-          console.log('❌ Max reconnection attempts reached');
           setConnectionStatus('error');
         }
       };
@@ -127,20 +142,18 @@ export const useWebSocket = (options: UseWebSocketOptions): UseWebSocketReturn =
         isConnectingRef.current = false;
         memoizedOnError.current?.(error);
         
-        // Only log errors after first attempt to reduce noise
-        if (reconnectCountRef.current > 0) {
-          console.error('❌ WebSocket error:', error);
-        } else {
-          console.log('🔗 Initial WebSocket connection failed, will retry...');
+        // Completely silent on error unless explicitly enabled
+        if (!silentMode && enabled) {
+          console.log('⚠️ WebSocket connection failed - real-time features unavailable');
         }
       };
 
     } catch (error) {
       setConnectionStatus('error');
       isConnectingRef.current = false;
-      console.error('❌ Failed to create WebSocket connection:', error);
+      // Silent error handling
     }
-  }, [url, reconnectAttempts, reconnectInterval]);
+  }, [url, reconnectAttempts, reconnectInterval, silentMode, enabled]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -154,7 +167,7 @@ export const useWebSocket = (options: UseWebSocketOptions): UseWebSocketReturn =
     }
 
     setIsConnected(false);
-    setConnectionStatus('disconnected');
+    setConnectionStatus('disabled');
     isConnectingRef.current = false;
     reconnectCountRef.current = 0;
   }, []);
@@ -164,24 +177,27 @@ export const useWebSocket = (options: UseWebSocketOptions): UseWebSocketReturn =
       try {
         wsRef.current.send(JSON.stringify(message));
       } catch (error) {
-        console.error('Failed to send WebSocket message:', error);
+        // Silent failure
       }
-    } else {
-      console.warn('WebSocket is not connected. Message not sent:', message);
     }
+    // Silent when not connected
   }, []);
 
   useEffect(() => {
-    // Add a small delay to ensure backend is ready
-    const connectTimeout = setTimeout(() => {
-      connect();
-    }, 1000);
+    if (enabled) {
+      // Only connect if enabled and add delay to avoid startup noise
+      const connectTimeout = setTimeout(() => {
+        connect();
+      }, 5000); // 5 second delay
 
-    return () => {
-      clearTimeout(connectTimeout);
-      disconnect();
-    };
-  }, [connect, disconnect]);
+      return () => {
+        clearTimeout(connectTimeout);
+        disconnect();
+      };
+    } else {
+      setConnectionStatus('disabled');
+    }
+  }, [connect, disconnect, enabled]);
 
   return {
     isConnected,
@@ -200,11 +216,14 @@ export const useCostUpdates = () => {
   const [totalCost, setTotalCost] = useState(0);
 
   const getWebSocketURL = () => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Assuming vercel dev proxies WebSocket to the root or a specific path if configured.
-    // For now, let's try connecting to the root of the host serving the frontend.
-    // If your WebSocket server is on a specific path like /api/websocket, adjust accordingly.
-    return `${protocol}//${window.location.host}`;
+    // Only enable WebSocket in development with Phoenix server
+    const isDev = process.env.NODE_ENV === 'development';
+    return isDev ? 'ws://localhost:6006' : '';
+  };
+
+  const isWebSocketEnabled = () => {
+    // Only enable in development when Phoenix server might be available
+    return process.env.NODE_ENV === 'development';
   };
 
   const handleMessage = useCallback((message: WebSocketMessage) => {
@@ -214,9 +233,12 @@ export const useCostUpdates = () => {
     }
   }, []);
 
+  const wsUrl = getWebSocketURL();
   const { isConnected, connectionStatus } = useWebSocket({
-    url: getWebSocketURL(), // Dynamically set WebSocket URL
-    onMessage: handleMessage
+    url: wsUrl,
+    onMessage: handleMessage,
+    silentMode: true,
+    enabled: isWebSocketEnabled() && !!wsUrl
   });
 
   return { costs, totalCost, isConnected, connectionStatus };
@@ -227,8 +249,12 @@ export const useTestResults = () => {
   const [currentTest, setCurrentTest] = useState<any>(null);
 
   const getWebSocketURL = () => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}`;
+    const isDev = process.env.NODE_ENV === 'development';
+    return isDev ? 'ws://localhost:6006' : '';
+  };
+
+  const isWebSocketEnabled = () => {
+    return process.env.NODE_ENV === 'development';
   };
 
   const handleMessage = useCallback((message: WebSocketMessage) => {
@@ -238,9 +264,12 @@ export const useTestResults = () => {
     }
   }, []);
 
+  const wsUrl = getWebSocketURL();
   const { isConnected, connectionStatus, sendMessage } = useWebSocket({
-    url: getWebSocketURL(), // Dynamically set WebSocket URL
-    onMessage: handleMessage
+    url: wsUrl,
+    onMessage: handleMessage,
+    silentMode: true,
+    enabled: isWebSocketEnabled() && !!wsUrl
   });
 
   const startTest = useCallback((testConfig: any) => {
@@ -256,8 +285,12 @@ export const useTraceUpdates = () => {
   const [activeSpans, setActiveSpans] = useState<any[]>([]);
 
   const getWebSocketURL = () => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}`;
+    const isDev = process.env.NODE_ENV === 'development';
+    return isDev ? 'ws://localhost:6006' : '';
+  };
+
+  const isWebSocketEnabled = () => {
+    return process.env.NODE_ENV === 'development';
   };
 
   const handleMessage = useCallback((message: WebSocketMessage) => {
@@ -278,9 +311,12 @@ export const useTraceUpdates = () => {
     }
   }, []);
 
+  const wsUrl = getWebSocketURL();
   const { isConnected, connectionStatus } = useWebSocket({
-    url: getWebSocketURL(), // Dynamically set WebSocket URL
-    onMessage: handleMessage
+    url: wsUrl,
+    onMessage: handleMessage,
+    silentMode: true,
+    enabled: isWebSocketEnabled() && !!wsUrl
   });
 
   return { traces, activeSpans, isConnected, connectionStatus };

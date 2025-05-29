@@ -67,45 +67,9 @@ export const PromptVersionManager: React.FC<VersionManagerProps> = ({
   const fetchVersions = async () => {
     try {
       setLoading(true);
-      // Mock data for demonstration
-      const mockVersions: PromptVersion[] = [
-        {
-          id: '1',
-          name: promptName,
-          version: 'v1.0.0',
-          template: 'You are a helpful assistant. Please {task}.',
-          description: 'Initial version with basic functionality',
-          tags: ['stable', 'production'],
-          createdAt: '2024-01-15T10:00:00Z',
-          author: 'Alice Smith',
-          isStable: true,
-          performance: { avgCost: 0.0012, avgLatency: 850, successRate: 95.2 }
-        },
-        {
-          id: '2',
-          name: promptName,
-          version: 'v1.1.0',
-          template: 'You are an expert assistant. Please {task} with detailed explanations.',
-          description: 'Enhanced version with more detailed responses',
-          tags: ['detailed', 'experimental'],
-          createdAt: '2024-01-20T14:30:00Z',
-          author: 'Bob Johnson',
-          isStable: false,
-          performance: { avgCost: 0.0034, avgLatency: 1200, successRate: 97.8 }
-        },
-        {
-          id: '3',
-          name: promptName,
-          version: 'v1.2.0',
-          template: currentTemplate,
-          description: 'Current working version',
-          tags: ['current', 'draft'],
-          createdAt: new Date().toISOString(),
-          author: 'Current User',
-          isStable: false
-        }
-      ];
-      setVersions(mockVersions);
+      // TODO: Replace with real API when backend implements version management
+      // For now, showing empty state with real data message
+      setVersions([]);
     } catch (error) {
       console.error('Error fetching versions:', error);
     } finally {
