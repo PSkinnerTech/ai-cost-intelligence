@@ -13,6 +13,7 @@ import RealTokenTesting from './components/Testing/RealTokenTesting';
 import { SignedIn as ClerkSignedIn, SignedOut as ClerkSignedOut, RedirectToSignIn } from "@clerk/clerk-react";
 import { getPricingDisplay } from './config/pricing';
 import { fetchRealDashboardData } from './services/realDataService';
+import SimpleSavingsCalculator from './components/SimpleSavingsCalculator';
 
 // Import ViewType from Sidebar
 type ViewType = 'landing' | 'dashboard' | 'playground' | 'editor' | 'testing' | 'real-testing' | 'session' | 'traces';
@@ -22,167 +23,39 @@ const SignedIn = ClerkSignedIn as React.FC<{ children: React.ReactNode }>;
 const SignedOut = ClerkSignedOut as React.FC<{ children: React.ReactNode }>;
 
 const LandingPage: React.FC = () => {
-  const [realSavingsData, setRealSavingsData] = useState<{
-    avgSavingsPercentage: number;
-    isLoading: boolean;
-  }>({ avgSavingsPercentage: 0, isLoading: true });
-
-  // Fetch real savings data on component mount
-  useEffect(() => {
-    const loadRealSavings = async () => {
-      try {
-        const realData = await fetchRealDashboardData(1000);
-        setRealSavingsData({
-          avgSavingsPercentage: realData.totalSavings.percentage,
-          isLoading: false
-        });
-      } catch (error) {
-        console.error('Failed to load real savings data:', error);
-        setRealSavingsData({
-          avgSavingsPercentage: 0,
-          isLoading: false
-        });
-      }
-    };
-
-    loadRealSavings();
-  }, []);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-16">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            🚀 Arize + Nevermined Demo
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold text-gray-900 mb-4">
+            Arize + Nevermined
           </h1>
-          <p className="text-xl text-gray-600 mb-8">
-            Real token monitoring and cost optimization for LLM applications
+          <p className="text-2xl text-gray-600">
+            Same monitoring. Real savings.
           </p>
-          <div className="flex justify-center items-center space-x-4">
-            <div className={`px-4 py-2 rounded-full text-sm font-medium ${
-              realSavingsData.isLoading 
-                ? 'bg-yellow-100 text-yellow-800' 
-                : 'bg-green-100 text-green-800'
-            }`}>
-              {realSavingsData.isLoading ? '🔄 Loading Real Data...' : '✅ Live Real Data'}
-            </div>
-          </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 mb-16">
-          {/* GPT-4 Card - Real Pricing */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <div className="text-center">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">GPT-4</h3>
-              <div className="mb-4">
-                <span className="font-mono text-red-600">
-                  {getPricingDisplay('gpt-4')}
-                </span>
-              </div>
-              <div className="mb-4">
-                <span className="font-mono text-green-600">
-                  Nevermined Optimized Rate
-                </span>
-              </div>
-              <div className="text-center">
-                <span className="text-lg font-bold text-green-700">
-                  {realSavingsData.isLoading 
-                    ? 'Loading...' 
-                    : `${realSavingsData.avgSavingsPercentage.toFixed(1)}% Savings`
-                  }
-                </span>
-              </div>
+        {/* Real Data Savings Calculator */}
+        <SimpleSavingsCalculator />
+
+        {/* Simple FAQ with Real Data Focus */}
+        <div className="mt-16 max-w-2xl mx-auto">
+          <h2 className="text-2xl font-bold mb-6">Quick Answers</h2>
+          <div className="space-y-4">
+            <div className="bg-white p-4 rounded-lg">
+              <h3 className="font-semibold">Does Arize still work?</h3>
+              <p className="text-gray-600">Yes. 100% of traces still flow to Arize.</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg">
+              <h3 className="font-semibold">How much can I save?</h3>
+              <p className="text-gray-600">Based on real API tests. Actual savings calculated from live data.</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg">
+              <h3 className="font-semibold">How long to implement?</h3>
+              <p className="text-gray-600">5 minutes. Just change your API endpoint.</p>
             </div>
           </div>
-
-          {/* GPT-3.5 Turbo Card - Real Pricing */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <div className="text-center">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">GPT-3.5 Turbo</h3>
-              <div className="mb-4">
-                <span className="font-mono text-red-600">
-                  {getPricingDisplay('gpt-3.5-turbo')}
-                </span>
-              </div>
-              <div className="mb-4">
-                <span className="font-mono text-green-600">
-                  Nevermined Optimized Rate
-                </span>
-              </div>
-              <div className="text-center">
-                <span className="text-lg font-bold text-green-700">
-                  {realSavingsData.isLoading 
-                    ? 'Loading...' 
-                    : `${realSavingsData.avgSavingsPercentage.toFixed(1)}% Savings`
-                  }
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* GPT-3.5 Mini Card - Real Pricing */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <div className="text-center">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">GPT-3.5 Mini</h3>
-              <div className="mb-4">
-                <span className="font-mono text-red-600">
-                  {getPricingDisplay('gpt-3.5-turbo-mini')}
-                </span>
-              </div>
-              <div className="mb-4">
-                <span className="font-mono text-green-600">
-                  Nevermined Optimized Rate
-                </span>
-              </div>
-              <div className="text-center">
-                <span className="text-lg font-bold text-green-700">
-                  {realSavingsData.isLoading 
-                    ? 'Loading...' 
-                    : `${realSavingsData.avgSavingsPercentage.toFixed(1)}% Savings`
-                  }
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              📊 Real-Time Cost Optimization
-            </h2>
-            <p className="text-gray-600 mb-8">
-              Monitor actual token usage and costs with live API data
-            </p>
-            
-            <div className="grid md:grid-cols-2 gap-8">
-              <div className="text-center">
-                <div className="text-lg font-bold text-purple-600">
-                  {realSavingsData.isLoading 
-                    ? 'Loading...' 
-                    : `${realSavingsData.avgSavingsPercentage.toFixed(1)}%`
-                  }
-                </div>
-                <div className="text-gray-600">Average Cost Reduction</div>
-                <div className="text-sm text-gray-500 mt-1">From real API comparisons</div>
-              </div>
-              
-              <div className="text-center">
-                <div className="text-lg font-bold text-blue-600">Real-Time</div>
-                <div className="text-gray-600">Token Monitoring</div>
-                <div className="text-sm text-gray-500 mt-1">Live Arize integration</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="text-center">
-          <button
-            onClick={() => window.location.href = '/dashboard'}
-            className="inline-block bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-          >
-            View Real Dashboard
-          </button>
         </div>
 
         {/* Real Data Disclaimer */}
@@ -192,8 +65,8 @@ const LandingPage: React.FC = () => {
               🔬 100% Real Data
             </h4>
             <p className="text-sm text-blue-700">
-              All pricing and savings data displayed is calculated from actual OpenAI API responses. 
-              No hardcoded values or assumptions are used. Costs are based on real token usage from live API calls.
+              All savings calculations are based on actual OpenAI API responses and real token usage. 
+              No mock data - everything is calculated from live API calls and official OpenAI pricing.
             </p>
           </div>
         </div>
