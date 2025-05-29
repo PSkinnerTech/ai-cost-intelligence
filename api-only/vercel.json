@@ -1,1 +1,9 @@
-{} 
+{
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "@vercel/node"
+    }
+  },
+  "buildCommand": "echo 'TypeScript API functions ready'",
+  "installCommand": "npm install"
+} 
