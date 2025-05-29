@@ -14,6 +14,9 @@ import { SignedIn as ClerkSignedIn, SignedOut as ClerkSignedOut, RedirectToSignI
 import { getPricingDisplay } from './config/pricing';
 import { fetchRealDashboardData } from './services/realDataService';
 
+// Import ViewType from Sidebar
+type ViewType = 'landing' | 'dashboard' | 'playground' | 'editor' | 'testing' | 'real-testing' | 'session' | 'traces';
+
 // Type assertion for React 19 compatibility
 const SignedIn = ClerkSignedIn as React.FC<{ children: React.ReactNode }>;
 const SignedOut = ClerkSignedOut as React.FC<{ children: React.ReactNode }>;
@@ -200,7 +203,7 @@ const LandingPage: React.FC = () => {
 };
 
 function App() {
-  const [currentView, setCurrentView] = useState('landing');
+  const [currentView, setCurrentView] = useState<ViewType>('landing');
 
   const renderCurrentView = () => {
     switch (currentView) {
